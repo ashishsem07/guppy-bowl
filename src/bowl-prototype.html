@@ -1,0 +1,919 @@
+<title>Guppy Bowl</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sniglet:wght@400;800&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: the bowl is the stage on the left; the fish's brain (vitals + thought log) sits beside it and stacks below on phones */
+:root {
+  --bg: #e8f0ef;
+  --fg: #12302e;
+  --muted: #587270;
+  --panel: #f7fbfa;
+  --line: #cbdad8;
+  --track: #dde8e6;
+  --accent: #f26b2a;
+  --accent-ink: #ffffff;
+  --accent-text: #b9480f;
+  --code: #e3ecea;
+  --room: #d9e6e4;
+  --room-shadow: rgba(18, 48, 46, 0.16);
+  --water-a: #a9e0dc;
+  --water-b: #4fa5a6;
+  --glass: rgba(255, 255, 255, 0.28);
+  --glass-edge: rgba(40, 90, 88, 0.55);
+  --gravel-a: #c9b79c;
+  --gravel-b: #a8927a;
+  --gravel-c: #e2d6c3;
+  --plant-a: #3f9a5c;
+  --plant-b: #2f7d49;
+  --rock: #8c8f98;
+  --bubble-bg: #ffffff;
+  --bubble-fg: #12302e;
+  --bubble-line: rgba(18, 48, 46, 0.18);
+  --m-content: #3f9c98;
+  --m-curious: #3a86d4;
+  --m-happy: #e9a114;
+  --m-hungry: #f26b2a;
+  --m-scared: #9459e0;
+  --m-sleepy: #6b7a9e;
+  --m-grumpy: #d24848;
+  --font-display: "Sniglet", "Trebuchet MS", system-ui, sans-serif;
+  --font-body: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b1617; --fg: #dbeae8; --muted: #88a3a0; --panel: #112223; --line: #22393a; --track: #1c3132;
+    --accent: #ff8a4c; --accent-ink: #1a0d05; --accent-text: #ffa26e; --code: #0d1c1d;
+    --room: #0f1f20; --room-shadow: rgba(0, 0, 0, 0.45);
+    --water-a: #2f7f84; --water-b: #123f47; --glass: rgba(255, 255, 255, 0.06); --glass-edge: rgba(170, 220, 216, 0.45);
+    --gravel-a: #6f6352; --gravel-b: #594e40; --gravel-c: #85796a; --plant-a: #2e7a47; --plant-b: #215f37; --rock: #5d616b;
+    --bubble-bg: #e9f4f2; --bubble-fg: #0e2423; --bubble-line: rgba(0, 0, 0, 0.3);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0b1617; --fg: #dbeae8; --muted: #88a3a0; --panel: #112223; --line: #22393a; --track: #1c3132;
+  --accent: #ff8a4c; --accent-ink: #1a0d05; --accent-text: #ffa26e; --code: #0d1c1d;
+  --room: #0f1f20; --room-shadow: rgba(0, 0, 0, 0.45);
+  --water-a: #2f7f84; --water-b: #123f47; --glass: rgba(255, 255, 255, 0.06); --glass-edge: rgba(170, 220, 216, 0.45);
+  --gravel-a: #6f6352; --gravel-b: #594e40; --gravel-c: #85796a; --plant-a: #2e7a47; --plant-b: #215f37; --rock: #5d616b;
+  --bubble-bg: #e9f4f2; --bubble-fg: #0e2423; --bubble-line: rgba(0, 0, 0, 0.3);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.5; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-inline: 20px; padding-block: 24px 40px; }
+.top { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 20px; }
+h1 { font-family: var(--font-display); font-weight: 800; font-size: clamp(30px, 4.4vw, 42px); line-height: 1.05; margin: 0; text-wrap: balance; }
+h1 span { color: var(--accent-text); }
+.sub { margin: 0; color: var(--muted); max-width: 58ch; }
+.grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 20px; margin-top: 18px; align-items: start; }
+@media (max-width: 880px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+.stage { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.bowl-wrap { background: var(--room); border: 1px solid var(--line); border-radius: 18px; overflow: hidden; }
+canvas { display: block; width: 100%; max-width: 100%; aspect-ratio: 800 / 640; cursor: pointer; touch-action: manipulation; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 9px 15px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); color: var(--fg); font: inherit; font-weight: 600; cursor: pointer; }
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+.btn[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: transparent; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+kbd { font-family: var(--font-mono); font-size: 11px; padding: 0 5px; border-radius: 4px; border: 1px solid currentColor; opacity: 0.6; }
+.talk { display: flex; gap: 8px; }
+.talk input { flex: 1; min-width: 0; padding: 10px 15px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); color: var(--fg); font: inherit; }
+.talk input::placeholder { color: var(--muted); }
+.hint { margin: 0; color: var(--muted); font-size: 13px; }
+.brain { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.mood-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.chip { --mc: var(--m-content); display: inline-flex; align-items: center; gap: 7px; padding: 4px 12px; border-radius: 999px; font-weight: 600; font-size: 14px; background: color-mix(in srgb, var(--mc) 16%, transparent); border: 1px solid color-mix(in srgb, var(--mc) 55%, transparent); }
+.chip::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--mc); }
+.act { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+.meters { display: flex; flex-direction: column; gap: 9px; }
+.meter { display: grid; grid-template-columns: 62px minmax(0, 1fr) 30px; align-items: center; gap: 10px; font-size: 13px; }
+.bar { height: 8px; border-radius: 99px; background: var(--track); overflow: hidden; }
+.bar i { display: block; height: 100%; width: 50%; border-radius: inherit; transition: width 0.3s linear; }
+#bar-hunger { background: var(--m-hungry); }
+#bar-energy { background: var(--m-curious); }
+#bar-trust { background: var(--m-happy); }
+.num { font-family: var(--font-mono); font-size: 12px; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+.log-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+h2 { margin: 0; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+.log-head span { font-size: 12px; color: var(--muted); }
+#log { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; max-height: 430px; overflow-y: auto; }
+#log:empty::after { content: "Guppy's thoughts show up here as soon as something happens in the bowl."; color: var(--muted); font-size: 13px; }
+.entry { border-top: 1px solid var(--line); padding-top: 10px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.ev { display: flex; align-items: baseline; gap: 8px; font-size: 13px; font-weight: 500; }
+.tag { font-family: var(--font-mono); font-size: 11px; padding: 1px 6px; border-radius: 4px; background: var(--track); }
+.ev time { margin-left: auto; font-family: var(--font-mono); font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+pre { margin: 0; font-family: var(--font-mono); font-size: 11.5px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+.prompt { color: var(--muted); }
+.reply .tk { color: var(--accent-text); }
+.parsed { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+.swap { border-top: 1px solid var(--line); padding-top: 14px; font-size: 14px; }
+.swap summary { cursor: pointer; font-weight: 600; }
+.swap p { margin: 10px 0 0; color: var(--muted); font-size: 13px; }
+.swap pre { margin-top: 10px; background: var(--code); padding: 12px; border-radius: 10px; overflow-x: auto; white-space: pre; word-break: normal; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+</style>
+
+<main class="wrap">
+  <header class="top">
+    <h1>Guppy <span>Bowl</span></h1>
+    <p class="sub">A small fish language model, given a body. The bowl handles swimming and reflexes. The model decides how Guppy feels and what it does next.</p>
+  </header>
+
+  <div class="grid">
+    <section class="stage" aria-label="Fish bowl">
+      <div class="bowl-wrap">
+        <canvas id="bowl" role="img" aria-label="A round fish bowl with a guppy, a plant, a rock and gravel. Click the glass to tap it. Click above the water to drop food."></canvas>
+      </div>
+      <div class="controls">
+        <button class="btn primary" id="btn-feed" type="button">Drop food <kbd>F</kbd></button>
+        <button class="btn" id="btn-tap" type="button">Tap the glass <kbd>T</kbd></button>
+        <button class="btn" id="btn-lights" type="button" aria-pressed="false">Turn lights off <kbd>L</kbd></button>
+      </div>
+      <form class="talk" id="talk">
+        <label class="sr" for="talk-input">Say something to Guppy</label>
+        <input id="talk-input" type="text" maxlength="80" autocomplete="off" placeholder="Say something to Guppy, like &quot;hello&quot; or &quot;what is your name&quot;">
+        <button class="btn" type="submit">Say</button>
+      </form>
+      <p class="hint">Click anywhere on the glass to tap it. Click above the water line to drop flakes where you click. Knock too often and Guppy stops trusting you.</p>
+    </section>
+
+    <aside class="brain" aria-label="Guppy's brain">
+      <div class="mood-row">
+        <span class="chip" id="mood-chip"><span id="mood-label">curious</span></span>
+        <span class="act" id="act-label">act: wander</span>
+      </div>
+      <div class="meters">
+        <div class="meter"><span>Hunger</span><span class="bar"><i id="bar-hunger"></i></span><span class="num" id="n-hunger">45</span></div>
+        <div class="meter"><span>Energy</span><span class="bar"><i id="bar-energy"></i></span><span class="num" id="n-energy">82</span></div>
+        <div class="meter"><span>Trust</span><span class="bar"><i id="bar-trust"></i></span><span class="num" id="n-trust">55</span></div>
+      </div>
+      <div class="log-head"><h2>Thought log</h2><span>event in, reply out</span></div>
+      <ol id="log" aria-live="polite"></ol>
+      <details class="swap">
+        <summary>Plug in the real model</summary>
+        <p>Guppy runs on a stand-in brain here that writes replies the way a tuned model would. The bowl only calls one function, so the 68M model drops in by replacing it:</p>
+<pre>brain.react = async (prompt) =&gt; {
+  const res = await fetch("https://your-fish-server/generate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt, max_new_tokens: 48 }),
+  });
+  const { text } = await res.json();
+  return text; // "&lt;mood:scared&gt; &lt;act:hide&gt; i hide now"
+};</pre>
+        <p>Moods: content, curious, happy, hungry, scared, sleepy, grumpy. Acts: wander, approach, flee, hide, chase_food, sleep, loop, surface, sulk. A reply with no tags still works: the bowl guesses mood and act from keywords. Artifact pages cannot call outside servers, so the swap works once you host the bowl yourself.</p>
+      </details>
+    </aside>
+  </div>
+</main>
+
+<script>
+(() => {
+  const W = 800, H = 640;
+  const B = { cx: 400, cy: 350, r: 270 };
+  const RIM_Y = 100, WATER_Y = 145, GRAVEL_Y = 552;
+  const halfAt = (y) => Math.sqrt(Math.max(0, B.r * B.r - (y - B.cy) ** 2));
+  const PLANT = { x: 282, base: GRAVEL_Y + 8 };
+  const ROCK = { x: 515, y: GRAVEL_Y + 4 };
+  const AIR = { x: 585, y: GRAVEL_Y - 2 };
+  const MOODS = ["content", "curious", "happy", "hungry", "scared", "sleepy", "grumpy"];
+  const ACTS = ["wander", "approach", "flee", "hide", "chase_food", "sleep", "loop", "surface", "sulk"];
+  const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  function inWater(x, y, m = 0) {
+    return y > WATER_Y + m && y < GRAVEL_Y - m && Math.hypot(x - B.cx, y - B.cy) < B.r - m;
+  }
+  function waterPoint(m = 45) {
+    for (let i = 0; i < 60; i++) {
+      const x = rnd(B.cx - B.r, B.cx + B.r), y = rnd(WATER_Y, GRAVEL_Y);
+      if (inWater(x, y, m)) return { x, y };
+    }
+    return { x: B.cx, y: 350 };
+  }
+  function intoWater(x, y, m = 45) {
+    let px = x, py = y;
+    for (let i = 0; i < 60 && !inWater(px, py, m); i++) { px += (B.cx - px) * 0.1; py += (350 - py) * 0.1; }
+    return { x: px, y: py };
+  }
+
+  // ---------- canvas ----------
+  const cv = document.getElementById("bowl");
+  const ctx = cv.getContext("2d");
+  let scale = 1;
+  function resize() {
+    const w = cv.clientWidth || 800;
+    const d = Math.min(window.devicePixelRatio || 1, 2);
+    cv.width = Math.round(w * d);
+    cv.height = Math.round((w * H / W) * d);
+    scale = cv.width / W;
+  }
+  new ResizeObserver(resize).observe(cv);
+  resize();
+
+  const colors = {};
+  const COLOR_KEYS = ["water-a", "water-b", "glass", "glass-edge", "gravel-a", "gravel-b", "gravel-c", "plant-a", "plant-b", "rock", "bubble-bg", "bubble-fg", "bubble-line", "room-shadow"];
+  function readColors() {
+    const cs = getComputedStyle(document.documentElement);
+    COLOR_KEYS.forEach((k) => (colors[k] = cs.getPropertyValue("--" + k).trim()));
+  }
+  readColors();
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", readColors);
+  new MutationObserver(readColors).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+  // ---------- scenery ----------
+  const pebbles = [];
+  for (let i = 0; i < 320; i++) {
+    const x = rnd(B.cx - B.r, B.cx + B.r), y = rnd(GRAVEL_Y - 6, B.cy + B.r);
+    if (Math.hypot(x - B.cx, y - B.cy) < B.r - 3) pebbles.push({ x, y, r: rnd(4, 9), c: pick(["gravel-a", "gravel-b", "gravel-c"]), rot: rnd(0, 3) });
+  }
+  pebbles.sort((a, b) => a.y - b.y);
+  const blades = Array.from({ length: 8 }, () => ({ dx: rnd(-28, 28), h: rnd(170, 290), ph: rnd(0, 6), w: rnd(10, 17), c: pick(["plant-a", "plant-b"]) }));
+
+  // ---------- world state ----------
+  let now = performance.now() / 1000;
+  let lightsOn = true, dark = 0, shake = 0;
+  let lastInteract = now, lastIdle = now, hungryFlag = false, tiredFlag = false, ateCount = 0;
+  let lastTap = null;
+  const tapTimes = [], flakes = [], bubbles = [], ripples = [], zs = [];
+  let airClock = 0, zClock = 0;
+
+  const fish = {
+    x: 400, y: 320, vx: 30, vy: 0, faceS: 1, tilt: 0, tailPh: 0, finPh: 0,
+    mood: "curious", act: "wander", target: waterPoint(), actUntil: 0, nextWander: 0,
+    reflexUntil: 0, reflexTarget: null, mouth: 0, say: "", sayUntil: 0, thinking: false,
+    hunger: 45, energy: 82, trust: 55, loopC: null, loopA: 0,
+  };
+
+  function setAction(act, opt = {}) {
+    fish.act = act;
+    switch (act) {
+      case "wander":
+        fish.target = waterPoint(50); fish.nextWander = now + rnd(3, 6); break;
+      case "approach": {
+        const p = opt.at || { x: B.cx, y: 360 };
+        fish.target = intoWater(p.x, p.y, 60); fish.actUntil = now + 4.5; break;
+      }
+      case "flee": {
+        const from = opt.from || lastTap || { x: B.cx, y: B.cy };
+        const dx = fish.x - from.x, dy = fish.y - from.y, d = Math.hypot(dx, dy) || 1;
+        fish.target = intoWater(B.cx + (dx / d) * 200, 350 + (dy / d) * 140, 45); fish.actUntil = now + 2.6; break;
+      }
+      case "hide":
+        fish.target = { x: PLANT.x + rnd(-12, 12), y: GRAVEL_Y - rnd(80, 130) }; fish.actUntil = now + rnd(7, 10); break;
+      case "sleep":
+        fish.target = { x: PLANT.x + 70, y: GRAVEL_Y - 30 }; break;
+      case "loop":
+        fish.loopC = intoWater(fish.x, fish.y, 100); fish.loopA = 0; fish.actUntil = now + 3.4; break;
+      case "surface":
+        fish.target = { x: clamp(fish.x, B.cx - 110, B.cx + 110), y: WATER_Y + 30 }; fish.actUntil = now + 8; break;
+      case "sulk": {
+        const side = lastTap && lastTap.x < B.cx ? 1 : -1;
+        fish.target = intoWater(B.cx + side * 175, GRAVEL_Y - 40, 45); fish.actUntil = now + 9; break;
+      }
+      case "chase_food":
+        fish.actUntil = now + 12; break;
+    }
+  }
+
+  function speedFor() {
+    if (now < fish.reflexUntil) return 300;
+    const a = fish.act;
+    if (a === "flee") return 230;
+    if (a === "sleep") return 22;
+    if (a === "chase_food") return 125;
+    if (a === "loop") return 150;
+    if (a === "sulk") return 38;
+    return { content: 55, curious: 72, happy: 85, hungry: 82, scared: 115, sleepy: 28, grumpy: 45 }[fish.mood] || 55;
+  }
+
+  function edibleFlakes() { return flakes.filter((f) => f.y > WATER_Y + 4); }
+
+  function updateFish(dt) {
+    let tx = fish.target.x, ty = fish.target.y;
+    if (now < fish.reflexUntil && fish.reflexTarget) {
+      tx = fish.reflexTarget.x; ty = fish.reflexTarget.y;
+    } else {
+      switch (fish.act) {
+        case "chase_food": {
+          const list = edibleFlakes();
+          if (list.length) {
+            let best = list[0], bd = Infinity;
+            for (const f of list) { const d = Math.hypot(f.x - fish.x, f.y - fish.y); if (d < bd) { bd = d; best = f; } }
+            const side = Math.sign(best.x - fish.x) || 1;
+            tx = best.x - side * 26; ty = best.y;
+          } else if (!flakes.length) {
+            setAction("wander");
+          }
+          break;
+        }
+        case "loop":
+          fish.loopA += dt * 2.3;
+          tx = fish.loopC.x + Math.cos(fish.loopA) * 70; ty = fish.loopC.y + Math.sin(fish.loopA) * 50; break;
+        case "wander":
+          if (Math.hypot(tx - fish.x, ty - fish.y) < 30 || now > fish.nextWander) setAction("wander");
+          break;
+        case "hide":
+        case "sleep":
+          ty += Math.sin(now * 1.3) * 5; break;
+      }
+      if (["approach", "flee", "hide", "loop", "surface", "sulk", "chase_food"].includes(fish.act) && now > fish.actUntil) {
+        if (!lightsOn) { fish.mood = "sleepy"; setAction("sleep"); }
+        else { if (fish.act === "sulk" || fish.act === "hide") fish.mood = "content"; setAction("wander"); }
+      }
+    }
+
+    const dx = tx - fish.x, dy = ty - fish.y, d = Math.hypot(dx, dy) || 1;
+    let sp = speedFor();
+    if (d < 80 && now >= fish.reflexUntil && fish.act !== "loop") sp *= Math.max(0.15, d / 80);
+    const k = now < fish.reflexUntil ? 7 : fish.act === "flee" ? 5 : 2.6;
+    fish.vx += ((dx / d) * sp - fish.vx) * Math.min(1, k * dt);
+    fish.vy += ((dy / d) * sp - fish.vy) * Math.min(1, k * dt);
+    fish.x += fish.vx * dt; fish.y += fish.vy * dt;
+
+    const cd = Math.hypot(fish.x - B.cx, fish.y - B.cy), lim = B.r - 34;
+    if (cd > lim) {
+      const nx = (fish.x - B.cx) / cd, ny = (fish.y - B.cy) / cd;
+      fish.x = B.cx + nx * lim; fish.y = B.cy + ny * lim;
+      const out = fish.vx * nx + fish.vy * ny;
+      if (out > 0) { fish.vx -= out * nx; fish.vy -= out * ny; }
+    }
+    if (fish.y < WATER_Y + 22) { fish.y = WATER_Y + 22; fish.vy = Math.max(0, fish.vy); }
+    if (fish.y > GRAVEL_Y - 18) { fish.y = GRAVEL_Y - 18; fish.vy = Math.min(0, fish.vy); }
+
+    if (Math.abs(fish.vx) > 8) {
+      const face = Math.sign(fish.vx);
+      fish.faceS += (face - fish.faceS) * Math.min(1, dt * 6);
+    }
+    const tt = clamp(Math.atan2(fish.vy, Math.abs(fish.vx) + 25), -0.55, 0.55);
+    fish.tilt += (tt - fish.tilt) * Math.min(1, dt * 4);
+    const speed = Math.hypot(fish.vx, fish.vy);
+    fish.tailPh += dt * (fish.act === "sleep" ? 2.5 : 6 + speed * 0.07);
+    fish.finPh += dt * 7;
+    fish.mouth = Math.max(0, fish.mouth - dt * 4);
+
+    // eating
+    if (fish.hunger > 8 && fish.act !== "sleep") {
+      const mx = fish.x + Math.sign(fish.faceS || 1) * 36, my = fish.y + 2;
+      for (let i = flakes.length - 1; i >= 0; i--) {
+        const f = flakes[i];
+        if (f.y < WATER_Y + 4) continue;
+        if (Math.hypot(f.x - mx, f.y - my) < 18 || Math.hypot(f.x - fish.x, f.y - fish.y) < 24) {
+          flakes.splice(i, 1);
+          fish.hunger = Math.max(0, fish.hunger - 9);
+          fish.energy = Math.min(100, fish.energy + 2);
+          fish.mouth = 1; ateCount++;
+          bubbles.push({ x: mx, y: my - 4, r: 3, vy: 40, ph: rnd(0, 6) });
+        }
+      }
+    }
+    if (!flakes.length && ateCount > 0) {
+      const n = ateCount; ateCount = 0;
+      emit({ type: "ate", label: "ate", text: `ate ${n} flake${n > 1 ? "s" : ""}` });
+    }
+
+    // body clocks
+    fish.hunger = Math.min(100, fish.hunger + dt * 0.22);
+    if (fish.act === "sleep") fish.energy = Math.min(100, fish.energy + dt * 3);
+    else fish.energy = Math.max(0, fish.energy - dt * (lightsOn ? 0.12 : 0.05) - (speed > 160 ? dt * 0.8 : 0));
+    fish.trust += (55 - fish.trust) * dt * 0.004;
+  }
+
+  function updateWorld(dt) {
+    shake = Math.max(0, shake - dt * 18);
+    dark += ((lightsOn ? 0 : 1) - dark) * Math.min(1, dt * 1.6);
+    for (let i = flakes.length - 1; i >= 0; i--) {
+      const f = flakes[i];
+      f.rot += dt * f.spin;
+      if (f.y < WATER_Y) { f.vy = Math.min(260, f.vy + 600 * dt); f.y += f.vy * dt; if (f.y >= WATER_Y) f.vy = rnd(20, 32); }
+      else if (!f.settled) {
+        f.y += f.vy * dt; f.x += Math.sin(now * 1.7 + f.ph) * 12 * dt;
+        if (f.y >= GRAVEL_Y - 6) { f.y = GRAVEL_Y - 6; f.settled = true; f.life = 25; }
+      } else {
+        f.life -= dt; if (f.life <= 0) flakes.splice(i, 1);
+      }
+    }
+    airClock -= dt;
+    if (airClock <= 0) { airClock = rnd(0.18, 0.4); bubbles.push({ x: AIR.x + rnd(-4, 4), y: AIR.y - 8, r: rnd(2, 5), vy: rnd(55, 85), ph: rnd(0, 6) }); }
+    for (let i = bubbles.length - 1; i >= 0; i--) {
+      const b = bubbles[i];
+      b.y -= b.vy * dt; b.x += Math.sin(now * 3 + b.ph) * 18 * dt;
+      if (b.y < WATER_Y + 4) bubbles.splice(i, 1);
+    }
+    for (let i = ripples.length - 1; i >= 0; i--) { ripples[i].t += dt; if (ripples[i].t > 0.9) ripples.splice(i, 1); }
+    if (fish.act === "sleep") {
+      zClock -= dt;
+      if (zClock <= 0) { zClock = 1.3; zs.push({ x: fish.x + Math.sign(fish.faceS) * 22, y: fish.y - 16, t: 0 }); }
+    }
+    for (let i = zs.length - 1; i >= 0; i--) { zs[i].t += dt; zs[i].y -= dt * 18; zs[i].x += Math.sin(zs[i].t * 2) * 0.4; if (zs[i].t > 2.4) zs.splice(i, 1); }
+
+    // body-driven events
+    if (fish.hunger > 70 && !hungryFlag) { hungryFlag = true; emit({ type: "hungry", label: "body", text: "hunger is getting high" }); }
+    if (fish.hunger < 45) hungryFlag = false;
+    if (lightsOn && fish.energy < 18 && fish.act !== "sleep" && !tiredFlag) { tiredFlag = true; emit({ type: "tired", label: "body", text: "energy is very low" }); }
+    if (fish.energy > 50) tiredFlag = false;
+    if (lightsOn && fish.act === "sleep" && fish.energy > 92) { fish.act = "wander"; emit({ type: "rested", label: "body", text: "woke up fully rested" }); }
+    if (!busy && !flakes.length && now - lastInteract > 30 && now - lastIdle > 30) {
+      lastIdle = now;
+      emit({ type: "idle", label: "idle", text: `nothing has happened for ${Math.round(now - lastInteract)} seconds` });
+    }
+  }
+
+  // ---------- interactions ----------
+  function tapGlass(x, y) {
+    lastInteract = now; lastTap = { x, y };
+    tapTimes.push(now);
+    while (tapTimes.length && now - tapTimes[0] > 10) tapTimes.shift();
+    const n = tapTimes.length;
+    ripples.push({ x, y, t: 0 });
+    if (!reduceMotion) shake = n > 2 ? 7 : 4;
+    const wasAsleep = fish.act === "sleep";
+    if (wasAsleep) { fish.act = "wander"; fish.vy -= 90; }
+    const d = Math.hypot(fish.x - x, fish.y - y) || 1;
+    if (d < 280 || n > 1 || wasAsleep) {
+      fish.reflexTarget = intoWater(fish.x + ((fish.x - x) / d) * 170, fish.y + ((fish.y - y) / d) * 120, 45);
+      fish.reflexUntil = now + 0.55;
+    }
+    if (n > 1) fish.trust = clamp(fish.trust - 5, 0, 100);
+    const side = x < B.cx - 70 ? "on the left" : x > B.cx + 70 ? "on the right" : "in the front";
+    emit({
+      type: "tap", label: "tap", count: n, asleep: wasAsleep, at: { x, y },
+      text: wasAsleep ? `woken up by a tap ${side}` : n === 1 ? `glass tapped once ${side}` : `glass tapped ${n} times in 10 seconds`,
+    });
+  }
+
+  function dropFood(x) {
+    lastInteract = now;
+    const hr = halfAt(RIM_Y) - 14;
+    const cx = x == null ? rnd(B.cx - 70, B.cx + 70) : x;
+    const n = 3 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < n; i++) {
+      flakes.push({ x: clamp(cx + rnd(-28, 28), B.cx - hr, B.cx + hr), y: rnd(20, 80), vy: 0, ph: rnd(0, 6), rot: rnd(0, 6), spin: rnd(-2, 2), c: pick(["#e8572a", "#f4a23a", "#d6402f", "#f2c04a"]), settled: false, life: 25 });
+    }
+    fish.trust = clamp(fish.trust + 3, 0, 100);
+    emit({ type: "food", label: "food", text: `${n} food flakes dropped from above` });
+  }
+
+  function toggleLights() {
+    lightsOn = !lightsOn; lastInteract = now;
+    const btn = document.getElementById("btn-lights");
+    btn.setAttribute("aria-pressed", String(!lightsOn));
+    btn.firstChild.textContent = lightsOn ? "Turn lights off " : "Turn lights on ";
+    emit({ type: lightsOn ? "lights_on" : "lights_off", label: "lights", text: lightsOn ? "the lights turned on" : "the lights turned off" });
+  }
+
+  function say(text) {
+    lastInteract = now;
+    if (/\b(stupid|dumb|ugly|hate|boring)\b/i.test(text)) fish.trust = clamp(fish.trust - 8, 0, 100);
+    else if (/\b(love|cute|good|pretty|nice|beautiful)\b/i.test(text)) fish.trust = clamp(fish.trust + 5, 0, 100);
+    emit({ type: "talk", label: "talk", said: text, text: `human says: "${text}"` });
+  }
+
+  // ---------- brain ----------
+  function T(mood, act, lines) { return `<mood:${mood}> <act:${act}> ${pick(lines)}`; }
+
+  function talkReply(said, s) {
+    const t = said.toLowerCase();
+    if (/\b(stupid|dumb|ugly|hate|boring)\b/.test(t)) return T("grumpy", "sulk", ["rude. i will think about this behind the plant.", "i heard that. fish have feelings. small ones."]);
+    if (/\b(hi|hello|hey|yo|hii+)\b/.test(t)) return T("happy", "approach", ["hello. you are very big. i am guppy.", "hi big face. welcome to my water."]);
+    if (/name/.test(t)) return T("content", "approach", ["my name is guppy. i think it means small fish.", "i am guppy. you can say it slowly."]);
+    if (/food|hungry|eat|feed/.test(t)) return s.hunger > 40
+      ? T("hungry", "surface", ["yes. food. please. it comes from the top.", "did you say food. i am at the top now. waiting."])
+      : T("content", "wander", ["i ate already. but i would eat again.", "food is my favorite word. after water."]);
+    if (/love|cute|good fish|pretty|beautiful|nice/.test(t)) return T("happy", "loop", ["i love you too. i also love water and food.", "nice words. i do a happy circle."]);
+    if (/sad|tired|bad day|lonely/.test(t)) return T("content", "approach", ["i am sorry. come watch me swim. it helps fish.", "sad is heavy. water makes things lighter."]);
+    if (/meaning|life|universe|why/.test(t)) return T("curious", "wander", ["life is water. then food. then more water.", "i think about this when i swim in circles."]);
+    if (/sleep|night|bed/.test(t)) return T("sleepy", "sleep", ["sleep sounds good. i close my eyes. i have no eyelids. i try."]);
+    if (/\?\s*$/.test(t)) return T("curious", "approach", ["i do not know. i am a fish. my brain is small.", "good question. i will ask the plant."]);
+    return T("content", "approach", ["i hear you. i do not understand. i like it.", "bubbles. that is my answer.", "ok. i swim now."]);
+  }
+
+  function standIn(ev, s) {
+    switch (ev.type) {
+      case "start": return T("curious", "wander", ["new water. it smells like glass. i like it.", "hello bowl. i am guppy. i live here now."]);
+      case "tap":
+        if (ev.asleep) return T("grumpy", "sulk", ["i was sleeping. you knocked on my whole house.", "who knocks at night. rude big face."]);
+        if (ev.count >= 5) return T("grumpy", "sulk", ["stop. the glass is my sky. you shake my sky.", "so many knocks. i am not a drum. i am a fish."]);
+        if (ev.count >= 3) return T("scared", "hide", ["too many knocks. i hide in the green thing.", "the walls are shouting. i go behind the plant."]);
+        if (ev.count === 2) return T("scared", "flee", ["aah. a big sound. i swim away fast.", "knock again? my heart is very small."]);
+        if (s.trust < 35) return T("scared", "flee", ["a knock. last time knocks were bad. i go."]);
+        return T("curious", "approach", ["a knock? who is there. i come look.", "tap tap. is that a friend. i look closer."]);
+      case "food":
+        if (s.hunger < 15) return T("content", "wander", ["i am full. i look at the food only.", "food again? i am round already."]);
+        if (s.hunger > 60) return T("hungry", "chase_food", ["FOOD. finally. the sky remembers me.", "food food food. i am very fast now."]);
+        return T("hungry", "chase_food", ["food from the sky. my favorite weather.", "flakes! i get them before they sink."]);
+      case "ate":
+        if (s.hunger < 25) return T("happy", "loop", ["that was good. i am round now.", "yum. i do a happy circle for you."]);
+        return T("hungry", "surface", ["more? i can eat more. i am small but brave.", "that was a snack. where is the meal."]);
+      case "talk": return talkReply(ev.said, s);
+      case "lights_off": return T("sleepy", "sleep", ["dark now. i rest near the plant. goodnight big face.", "the sun went away. i sleep on the stones."]);
+      case "lights_on": return T("curious", "wander", ["bright! is it morning. i do not know time.", "light is back. i check the whole bowl."]);
+      case "idle":
+        if (!lightsOn) return T("sleepy", "sleep", ["zzz. i dream of flakes.", "zzz. the plant is talking in my dream."]);
+        if (s.hunger > 60) return T("hungry", "surface", ["i am hungry. i wait at the top. this is a hint."]);
+        if (s.trust > 65) return T("content", "approach", ["where did you go. the water is quiet.", "i swim to the front. maybe you come back."]);
+        return T("content", "wander", ["nothing happens. i swim in a circle. again.", "i counted the stones. there are many."]);
+      case "hungry": return T("hungry", "surface", ["my belly is empty. i look up at the sky door.", "i would like food now. please and thank you."]);
+      case "tired": return T("sleepy", "sleep", ["i swam a lot. i rest on the bottom now."]);
+      case "rested": return T("happy", "wander", ["i slept. i feel new. like new water."]);
+    }
+    return T("content", "wander", ["blub."]);
+  }
+
+  const brain = {
+    // Swap this for the real model: it gets the prompt string and returns the fish's reply.
+    react: async (prompt, ev) => {
+      await sleep(rnd(450, 1200));
+      return standIn(ev, fish);
+    },
+  };
+  window.brain = brain;
+
+  function keywordGuess(s) {
+    s = s.toLowerCase();
+    if (/food|eat|hungry|yum/.test(s)) return { mood: "hungry", act: "chase_food" };
+    if (/scared|hide|afraid|aah/.test(s)) return { mood: "scared", act: "hide" };
+    if (/sleep|tired|zzz|night/.test(s)) return { mood: "sleepy", act: "sleep" };
+    if (/love|happy|good|yay/.test(s)) return { mood: "happy", act: "loop" };
+    if (/stop|rude|angry/.test(s)) return { mood: "grumpy", act: "sulk" };
+    if (/\?|who|what|look/.test(s)) return { mood: "curious", act: "approach" };
+    return { mood: "content", act: "wander" };
+  }
+  function parseReply(raw) {
+    const m = raw.match(/<mood:([a-z_]+)>/i), a = raw.match(/<act:([a-z_]+)>/i);
+    const sayText = raw.replace(/<[^>]*>/g, "").trim();
+    let mood = m && MOODS.includes(m[1]) ? m[1] : null;
+    let act = a && ACTS.includes(a[1]) ? a[1] : null;
+    let via = "tags";
+    if (!mood || !act) { const g = keywordGuess(sayText); mood = mood || g.mood; act = act || g.act; via = "keywords"; }
+    return { mood, act, say: sayText, via };
+  }
+
+  function buildPrompt(ev) {
+    return `<state> hunger=${Math.round(fish.hunger)} energy=${Math.round(fish.energy)} trust=${Math.round(fish.trust)} mood=${fish.mood} lights=${lightsOn ? "on" : "off"}\n<event> ${ev.text}\n<fish>`;
+  }
+
+  let busy = false, pending = null;
+  function emit(ev) {
+    if (busy) { if (!(pending && pending.type === "talk" && ev.type === "idle")) pending = ev; return; }
+    think(ev);
+  }
+  async function think(ev) {
+    busy = true; fish.thinking = true;
+    const prompt = buildPrompt(ev);
+    let raw;
+    try { raw = String(await brain.react(prompt, ev)); }
+    catch (e) { raw = "<mood:content> <act:wander> blub. (the brain did not answer)"; }
+    const out = parseReply(raw);
+    applyReply(out, ev);
+    addLog(ev, prompt, raw, out);
+    busy = false; fish.thinking = false;
+    if (pending) { const p = pending; pending = null; think(p); }
+  }
+
+  function applyReply(out, ev) {
+    fish.mood = out.mood;
+    if (out.act === "approach") setAction("approach", { at: ev.at });
+    else if (out.act === "flee") setAction("flee", { from: ev.at });
+    else if (out.act === "chase_food" && !flakes.length) setAction("surface");
+    else setAction(out.act);
+    fish.say = out.say;
+    fish.sayUntil = now + 2.6 + out.say.length * 0.05;
+    fish.mouth = 1;
+    const mx = fish.x + Math.sign(fish.faceS) * 36;
+    for (let i = 0; i < 3; i++) bubbles.push({ x: mx + rnd(-3, 3), y: fish.y - i * 6, r: rnd(2, 4), vy: rnd(40, 60), ph: rnd(0, 6) });
+  }
+
+  // ---------- log + vitals ----------
+  const logEl = document.getElementById("log");
+  const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  function addLog(ev, prompt, raw, out) {
+    const li = document.createElement("li");
+    li.className = "entry";
+    const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    const replyHtml = esc(raw).replace(/&lt;(mood|act):([a-z_]+)&gt;/gi, '<span class="tk">&lt;$1:$2&gt;</span>');
+    li.innerHTML =
+      `<div class="ev"><span class="tag">${esc(ev.label || ev.type)}</span><span>${esc(ev.text)}</span><time>${time}</time></div>` +
+      `<pre class="prompt">${esc(prompt)}</pre>` +
+      `<pre class="reply">${replyHtml}</pre>` +
+      `<div class="parsed">mood ${out.mood} · act ${out.act} · read from ${out.via}</div>`;
+    logEl.prepend(li);
+    while (logEl.children.length > 14) logEl.lastChild.remove();
+  }
+
+  const chip = document.getElementById("mood-chip"), moodLabel = document.getElementById("mood-label"), actLabel = document.getElementById("act-label");
+  function setMeter(id, v) {
+    document.getElementById("bar-" + id).style.width = v.toFixed(1) + "%";
+    document.getElementById("n-" + id).textContent = Math.round(v);
+  }
+  function updateVitals() {
+    setMeter("hunger", fish.hunger); setMeter("energy", fish.energy); setMeter("trust", fish.trust);
+    moodLabel.textContent = fish.thinking ? fish.mood + " · thinking" : fish.mood;
+    chip.style.setProperty("--mc", `var(--m-${fish.mood})`);
+    actLabel.textContent = "act: " + fish.act;
+  }
+
+  // ---------- drawing ----------
+  function bowlClip() {
+    ctx.beginPath(); ctx.arc(B.cx, B.cy, B.r, 0, Math.PI * 2); ctx.clip();
+    ctx.beginPath(); ctx.rect(0, RIM_Y, W, H); ctx.clip();
+  }
+  function wave(x) { return WATER_Y + Math.sin(x * 0.03 + now * 1.6) * 2.2 + Math.sin(x * 0.07 - now * 1.1) * 1.2; }
+
+  function drawRock() {
+    ctx.fillStyle = colors.rock;
+    ctx.beginPath();
+    ctx.moveTo(ROCK.x - 60, ROCK.y);
+    ctx.bezierCurveTo(ROCK.x - 62, ROCK.y - 52, ROCK.x - 20, ROCK.y - 74, ROCK.x + 10, ROCK.y - 66);
+    ctx.bezierCurveTo(ROCK.x + 46, ROCK.y - 58, ROCK.x + 62, ROCK.y - 30, ROCK.x + 58, ROCK.y);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,0.12)";
+    ctx.beginPath(); ctx.ellipse(ROCK.x - 14, ROCK.y - 50, 22, 9, -0.3, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "rgba(0,0,0,0.15)";
+    ctx.beginPath(); ctx.ellipse(ROCK.x + 18, ROCK.y - 22, 7, 5, 0, 0, Math.PI * 2); ctx.fill();
+    // air stone
+    ctx.fillStyle = "#7b8794";
+    ctx.beginPath(); ctx.ellipse(AIR.x, AIR.y - 4, 12, 7, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  function drawGravel() {
+    for (const p of pebbles) {
+      ctx.fillStyle = colors[p.c];
+      ctx.beginPath(); ctx.ellipse(p.x, p.y, p.r, p.r * 0.7, p.rot, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+  function drawPlant() {
+    for (const b of blades) {
+      const bx = PLANT.x + b.dx, by = PLANT.base;
+      const sway = Math.sin(now * 0.9 + b.ph) * 14;
+      const tx = bx + sway + b.dx * 0.5, ty = by - b.h;
+      ctx.fillStyle = colors[b.c];
+      ctx.beginPath();
+      ctx.moveTo(bx - b.w / 2, by);
+      ctx.quadraticCurveTo(bx + sway * 0.5 - b.w, by - b.h * 0.55, tx, ty);
+      ctx.quadraticCurveTo(bx + sway * 0.5 + b.w, by - b.h * 0.55, bx + b.w / 2, by);
+      ctx.closePath(); ctx.fill();
+    }
+  }
+  function drawFlake(f) {
+    ctx.save(); ctx.translate(f.x, f.y); ctx.rotate(f.rot);
+    ctx.globalAlpha = f.settled ? Math.min(1, f.life / 4) : 1;
+    ctx.fillStyle = f.c;
+    ctx.beginPath(); ctx.moveTo(-5, -2); ctx.lineTo(3, -4); ctx.lineTo(5, 2); ctx.lineTo(-3, 4); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+  function drawBubble(b) {
+    ctx.strokeStyle = "rgba(255,255,255,0.6)"; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = "rgba(255,255,255,0.5)";
+    ctx.beginPath(); ctx.arc(b.x - b.r * 0.35, b.y - b.r * 0.35, b.r * 0.3, 0, Math.PI * 2); ctx.fill();
+  }
+
+  function drawFish() {
+    const f = fish;
+    const sign = Math.sign(f.faceS) || 1;
+    let sx = f.faceS; if (Math.abs(sx) < 0.18) sx = 0.18 * sign;
+    ctx.save();
+    ctx.translate(f.x, f.y);
+    ctx.rotate(f.tilt * sign);
+    ctx.scale(sx * 1.15, 1.15);
+
+    // tail
+    const wig = Math.sin(f.tailPh) * (f.act === "sleep" ? 0.12 : 0.32);
+    ctx.save(); ctx.translate(-24, 0); ctx.rotate(wig);
+    const tg = ctx.createLinearGradient(0, 0, -58, 0);
+    tg.addColorStop(0, "#ff8a3d"); tg.addColorStop(0.5, "#ff5d73"); tg.addColorStop(1, "#4f7dff");
+    ctx.fillStyle = tg;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.bezierCurveTo(-18, -10, -38, -36, -54, -31);
+    ctx.quadraticCurveTo(-66, 0, -54, 31);
+    ctx.bezierCurveTo(-38, 36, -18, 10, 0, 0);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,0.25)"; ctx.lineWidth = 1;
+    for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(-4, 0); ctx.lineTo(-54, i * 12); ctx.stroke(); }
+    ctx.fillStyle = "rgba(20,30,80,0.45)";
+    [[-38, -12], [-46, 8], [-30, 14], [-50, -4]].forEach(([x, y]) => { ctx.beginPath(); ctx.arc(x, y, 2.6, 0, Math.PI * 2); ctx.fill(); });
+    ctx.restore();
+
+    // dorsal fin
+    ctx.fillStyle = "rgba(255,140,70,0.9)";
+    ctx.beginPath(); ctx.moveTo(-12, -12); ctx.quadraticCurveTo(-6, -30 - Math.sin(f.finPh) * 2, 10, -14); ctx.closePath(); ctx.fill();
+    // body
+    const bg = ctx.createRadialGradient(6, -6, 2, 0, 0, 32);
+    bg.addColorStop(0, "#fff0dc"); bg.addColorStop(0.55, "#f6ad6c"); bg.addColorStop(1, "#d9733a");
+    ctx.fillStyle = bg;
+    ctx.beginPath(); ctx.ellipse(0, 0, 31, 15, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,0.35)";
+    ctx.beginPath(); ctx.ellipse(4, 7, 18, 5, 0, 0, Math.PI * 2); ctx.fill();
+    // gill
+    ctx.strokeStyle = "rgba(150,60,20,0.35)"; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.arc(8, 0, 9, -1.1, 1.1); ctx.stroke();
+    // pectoral fin
+    ctx.save(); ctx.translate(4, 5); ctx.rotate(0.5 + Math.sin(f.finPh) * 0.35);
+    ctx.fillStyle = "rgba(255,170,110,0.85)";
+    ctx.beginPath(); ctx.ellipse(-6, 0, 8, 3.5, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    // eye
+    const ex = 18, ey = -4;
+    if (f.act === "sleep") {
+      ctx.strokeStyle = "#2a1a10"; ctx.lineWidth = 1.8;
+      ctx.beginPath(); ctx.arc(ex, ey, 4.5, 0.2, Math.PI - 0.2); ctx.stroke();
+    } else {
+      const er = f.mood === "scared" ? 7 : 5.6;
+      ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.arc(ex, ey, er, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#1a1410"; ctx.beginPath(); ctx.arc(ex + 1.4, ey, f.mood === "scared" ? 2.4 : 3.2, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.arc(ex + 2.4, ey - 1.4, 1, 0, Math.PI * 2); ctx.fill();
+      if (f.mood === "grumpy") {
+        ctx.strokeStyle = "#2a1a10"; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(ex - 6, ey - 9); ctx.lineTo(ex + 6, ey - 6); ctx.stroke();
+      }
+      if (f.mood === "happy") {
+        ctx.fillStyle = "rgba(255,90,110,0.35)"; ctx.beginPath(); ctx.ellipse(ex - 2, ey + 8, 5, 2.5, 0, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+    // mouth
+    ctx.fillStyle = "#8a3a1a";
+    ctx.beginPath(); ctx.ellipse(30, 3, 1.6 + f.mouth * 1.4, 1.2 + f.mouth * 2.6, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+
+  function wrapText(text, maxW) {
+    const words = text.split(/\s+/), lines = [];
+    let line = "";
+    for (const w of words) {
+      const test = line ? line + " " + w : w;
+      if (ctx.measureText(test).width > maxW && line) { lines.push(line); line = w; } else line = test;
+    }
+    if (line) lines.push(line);
+    return lines;
+  }
+  function drawSpeech() {
+    if (!fish.say || now > fish.sayUntil) return;
+    const fade = Math.min(1, (fish.sayUntil - now) / 0.4);
+    ctx.save(); ctx.globalAlpha = fade;
+    ctx.font = '400 18px Sniglet, "Trebuchet MS", sans-serif';
+    const lines = wrapText(fish.say, 240), lh = 22;
+    const w = Math.max(...lines.map((l) => ctx.measureText(l).width)) + 28, h = lines.length * lh + 18;
+    const bx = clamp(fish.x - w / 2, 10, W - w - 10);
+    let by = fish.y - 62 - h, below = false;
+    if (by < 8) { by = fish.y + 44; below = true; }
+    ctx.fillStyle = colors["bubble-bg"]; ctx.strokeStyle = colors["bubble-line"]; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(bx, by, w, h, 16); else ctx.rect(bx, by, w, h);
+    ctx.fill(); ctx.stroke();
+    const tx = clamp(fish.x, bx + 20, bx + w - 20);
+    const trail = below ? [[tx, by - 10, 5], [tx + 4, by - 22, 3]] : [[tx, by + h + 10, 5], [tx + 4, by + h + 22, 3]];
+    trail.forEach(([x, y, r]) => { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); });
+    ctx.fillStyle = colors["bubble-fg"]; ctx.textBaseline = "top";
+    lines.forEach((l, i) => ctx.fillText(l, bx + 14, by + 10 + i * lh));
+    ctx.restore();
+  }
+  function drawThinking() {
+    if (!fish.thinking) return;
+    for (let i = 0; i < 3; i++) {
+      const a = 0.35 + 0.65 * Math.max(0, Math.sin(now * 6 - i * 0.9));
+      ctx.fillStyle = `rgba(255,255,255,${a})`;
+      ctx.beginPath(); ctx.arc(fish.x - 10 + i * 11, fish.y - 34 - i * 5, 3 + i, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  function draw() {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    const sx = shake > 0 ? Math.sin(now * 70) * shake : 0;
+    ctx.setTransform(scale, 0, 0, scale, sx * scale, 0);
+
+    ctx.fillStyle = colors["room-shadow"];
+    ctx.beginPath(); ctx.ellipse(B.cx, B.cy + B.r + 4, 190, 12, 0, 0, Math.PI * 2); ctx.fill();
+
+    ctx.save();
+    bowlClip();
+    ctx.fillStyle = colors.glass; ctx.fillRect(0, 0, W, H);
+    const g = ctx.createLinearGradient(0, WATER_Y, 0, GRAVEL_Y);
+    g.addColorStop(0, colors["water-a"]); g.addColorStop(1, colors["water-b"]);
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.moveTo(B.cx - B.r, wave(B.cx - B.r));
+    for (let x = B.cx - B.r; x <= B.cx + B.r; x += 8) ctx.lineTo(x, wave(x));
+    ctx.lineTo(B.cx + B.r, H); ctx.lineTo(B.cx - B.r, H); ctx.closePath(); ctx.fill();
+
+    const light = 1 - dark;
+    if (light > 0.02) {
+      ctx.fillStyle = `rgba(255,255,255,${0.07 * light})`;
+      [-160, -50, 60, 160].forEach((o, i) => {
+        const sw = Math.sin(now * 0.4 + i) * 18;
+        ctx.beginPath(); ctx.moveTo(B.cx + o, WATER_Y); ctx.lineTo(B.cx + o + 34, WATER_Y);
+        ctx.lineTo(B.cx + o + 110 + sw, GRAVEL_Y); ctx.lineTo(B.cx + o + 40 + sw, GRAVEL_Y); ctx.closePath(); ctx.fill();
+      });
+    }
+
+    drawRock();
+    drawGravel();
+    flakes.forEach(drawFlake);
+    bubbles.forEach(drawBubble);
+    drawFish();
+    drawPlant();
+
+    if (dark > 0.01) { ctx.fillStyle = `rgba(4,10,28,${0.58 * dark})`; ctx.fillRect(0, 0, W, H); }
+    for (const r of ripples) {
+      const p = r.t / 0.9;
+      ctx.strokeStyle = `rgba(255,255,255,${0.7 * (1 - p)})`; ctx.lineWidth = 3 * (1 - p) + 1;
+      ctx.beginPath(); ctx.arc(r.x, r.y, 10 + p * 110, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.strokeStyle = "rgba(255,255,255,0.55)"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(B.cx - B.r, wave(B.cx - B.r));
+    for (let x = B.cx - B.r; x <= B.cx + B.r; x += 8) ctx.lineTo(x, wave(x));
+    ctx.stroke();
+    ctx.restore();
+
+    // glass
+    const hr = halfAt(RIM_Y);
+    const aR = Math.atan2(RIM_Y - B.cy, hr), aL = Math.atan2(RIM_Y - B.cy, -hr);
+    ctx.strokeStyle = colors["glass-edge"]; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(B.cx, B.cy, B.r, aR, aL); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(B.cx, RIM_Y, hr, 9, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = "rgba(255,255,255,0.4)"; ctx.lineWidth = 9; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.arc(B.cx, B.cy, B.r - 20, Math.PI * 1.02, Math.PI * 1.28); ctx.stroke();
+    ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.arc(B.cx, B.cy, B.r - 22, Math.PI * 0.12, Math.PI * 0.2); ctx.stroke();
+    ctx.lineCap = "butt";
+
+    // flakes still in the air, above the bowl
+    flakes.filter((f) => f.y < RIM_Y).forEach(drawFlake);
+
+    ctx.font = '400 20px Sniglet, "Trebuchet MS", sans-serif'; ctx.textBaseline = "alphabetic";
+    for (const z of zs) {
+      ctx.fillStyle = `rgba(230,240,255,${Math.max(0, 1 - z.t / 2.4)})`;
+      ctx.font = `400 ${14 + z.t * 6}px Sniglet, "Trebuchet MS", sans-serif`;
+      ctx.fillText("z", z.x, z.y);
+    }
+    drawThinking();
+    drawSpeech();
+  }
+
+  // ---------- loop ----------
+  let last = performance.now() / 1000, vitClock = 0;
+  function frame() {
+    const t = performance.now() / 1000;
+    const dt = Math.min(0.05, t - last); last = t; now = t;
+    updateFish(dt);
+    updateWorld(dt);
+    vitClock -= dt;
+    if (vitClock <= 0) { vitClock = 0.25; updateVitals(); }
+    draw();
+    requestAnimationFrame(frame);
+  }
+
+  // ---------- input ----------
+  function toBowl(e) {
+    const r = cv.getBoundingClientRect();
+    return { x: ((e.clientX - r.left) / r.width) * W, y: ((e.clientY - r.top) / r.height) * H };
+  }
+  cv.addEventListener("pointerdown", (e) => {
+    const p = toBowl(e);
+    if (p.y < WATER_Y - 4 && Math.abs(p.x - B.cx) < halfAt(RIM_Y) + 40) dropFood(p.x);
+    else tapGlass(p.x, p.y);
+  });
+  document.getElementById("btn-feed").addEventListener("click", () => dropFood());
+  document.getElementById("btn-tap").addEventListener("click", () => {
+    const a = Math.random() < 0.5 ? rnd(-0.3, 0.5) : rnd(Math.PI - 0.5, Math.PI + 0.3);
+    tapGlass(B.cx + Math.cos(a) * (B.r - 8), B.cy + Math.sin(a) * (B.r - 8));
+  });
+  document.getElementById("btn-lights").addEventListener("click", toggleLights);
+  const input = document.getElementById("talk-input");
+  document.getElementById("talk").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = "";
+    say(text);
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.target.closest("input, textarea, select") || e.metaKey || e.ctrlKey || e.altKey) return;
+    const k = e.key.toLowerCase();
+    if (k === "f") dropFood();
+    else if (k === "t") document.getElementById("btn-tap").click();
+    else if (k === "l") toggleLights();
+  });
+
+  // ---------- boot ----------
+  window.claude?.hot?.snapshot?.(() => ({ hunger: fish.hunger, energy: fish.energy, trust: fish.trust, lightsOn }));
+  function start(data) {
+    if (data && typeof data.hunger === "number") {
+      fish.hunger = data.hunger; fish.energy = data.energy; fish.trust = data.trust;
+      if (data.lightsOn === false) toggleLights();
+    }
+    updateVitals();
+    requestAnimationFrame(frame);
+    emit({ type: "start", label: "start", text: "you are placed in a new bowl" });
+  }
+  window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+})();
+</script>

@@ -1,0 +1,11 @@
+{
+  "name": "guppy-bowl-tooling",
+  "description": "Node tooling for testing the browser runtime and vendoring its libraries",
+  "dependencies": {
+    "@huggingface/tokenizers": "0.2.0",
+    "onnxruntime-web": "1.30.0",
+    "puppeteer-core": "25.14.0"
+  },
+  "private": true,
+  "type": "module"
+}

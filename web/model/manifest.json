@@ -1,0 +1,10 @@
+{
+  "version": "af17d7ab8dcc",
+  "bytes": 69788150,
+  "parts": [
+    "../weights/af17d7ab8dcc/part-000.bin",
+    "../weights/af17d7ab8dcc/part-001.bin",
+    "../weights/af17d7ab8dcc/part-002.bin",
+    "../weights/af17d7ab8dcc/part-003.bin"
+  ]
+}

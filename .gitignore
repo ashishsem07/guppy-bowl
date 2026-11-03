@@ -1,0 +1,13 @@
+# regenerable build output and local tooling
+.venv/
+build/
+downloads/
+jsdeps/node_modules/
+node_modules/
+__pycache__/
+*.png
+# local only
+.env*
+.vercel/
+PROGRESS_NOTES.md
+.DS_Store

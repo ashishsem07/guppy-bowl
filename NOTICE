@@ -1,0 +1,20 @@
+Guppy Bowl
+Copyright 2026 Ashish Pathak
+
+This project redistributes and builds on third-party work:
+
+- Fish LM 68M (Govind222/68m-base-guppy-sft) by Govind Barbade, Apache-2.0.
+  https://huggingface.co/Govind222/68m-base-guppy-sft
+  web/weights/ and web/model/ hold that model converted to ONNX and quantized
+  to 8-bit, plus its tokenizer. The weights were converted, not retrained.
+
+- transformer-toolkit by Govind Barbade, Apache-2.0.
+  https://github.com/Barbade22/transformer-toolkit
+  scripts/ttk_ref/ is an unmodified copy of its model code, used only as the
+  reference when checking the conversion.
+
+- guppylm-60k-generic dataset by arman-bd (the model's fine-tuning data).
+  https://huggingface.co/datasets/arman-bd/guppylm-60k-generic
+
+- ONNX Runtime Web (web/vendor/ort*), Copyright Microsoft Corporation, MIT License.
+- tokenizers.js (web/vendor/tokenizers.min.mjs), Copyright Hugging Face, Apache-2.0.
