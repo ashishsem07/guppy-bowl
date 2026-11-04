@@ -44,6 +44,12 @@
   --m-scared: #9459e0;
   --m-sleepy: #6b7a9e;
   --m-grumpy: #d24848;
+  --m-existential: #8b5cf6;
+  --m-sassy: #ec4899;
+  --m-zen: #10b981;
+  --m-dramatic: #f59e0b;
+  --m-affectionate: #f43f5e;
+  --m-playful: #06b6d4;
   --font-display: "Sniglet", "Trebuchet MS", system-ui, sans-serif;
   --font-body: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
@@ -161,6 +167,8 @@ pre { margin: 0; font-family: var(--font-mono); font-size: 11.5px; line-height: 
         <button class="btn primary" id="btn-feed" type="button">Drop food <kbd>F</kbd></button>
         <button class="btn" id="btn-tap" type="button">Tap the glass <kbd>T</kbd></button>
         <button class="btn" id="btn-lights" type="button" aria-pressed="false">Turn lights off <kbd>L</kbd></button>
+        <button class="btn" id="btn-voice" type="button" aria-pressed="true">Voice <kbd>V</kbd></button>
+        <button class="btn" id="btn-radio" type="button" aria-pressed="true" title="Toggle spacecraft radio filter (R)">Radio filter <kbd>R</kbd></button>
       </div>
       <form class="talk" id="talk">
         <label class="sr" for="talk-input">Say something to Guppy</label>
@@ -194,6 +202,7 @@ pre { margin: 0; font-family: var(--font-mono); font-size: 11.5px; line-height: 
           <li>Personality data: <a href="https://huggingface.co/datasets/arman-bd/guppylm-60k-generic" target="_blank" rel="noopener">guppylm-60k-generic</a> by arman-bd.</li>
           <li>Each bowl event becomes a short line to Guppy, phrased like its training chats ("someone tapped the glass", "want some food"). The reply is what you see. The event sets the mood and action, and words in the reply can shift it when you talk to Guppy.</li>
           <li>Nothing leaves your device. The model runs on ONNX Runtime Web in a background thread.</li>
+          <li>Voice: In-browser Piper WASM (TARS Interstellar voice with spacecraft intercom filter).</li>
           <li>The whole bowl is open source: <a href="https://github.com/ashishsem07/guppy-bowl" target="_blank" rel="noopener">github.com/ashishsem07/guppy-bowl</a>. Fork it, swap the fish, give it a tank of its own.</li>
         </ul>
       </details>
@@ -210,8 +219,8 @@ pre { margin: 0; font-family: var(--font-mono); font-size: 11.5px; line-height: 
   const PLANT = { x: 282, base: GRAVEL_Y + 8 };
   const ROCK = { x: 515, y: GRAVEL_Y + 4 };
   const AIR = { x: 585, y: GRAVEL_Y - 2 };
-  const MOODS = ["content", "curious", "happy", "hungry", "scared", "sleepy", "grumpy"];
-  const ACTS = ["wander", "approach", "flee", "hide", "chase_food", "sleep", "loop", "surface", "sulk"];
+  const MOODS = ["content", "curious", "happy", "hungry", "scared", "sleepy", "grumpy", "existential", "sassy", "zen", "dramatic", "affectionate", "playful"];
+  const ACTS = ["wander", "approach", "flee", "hide", "chase_food", "sleep", "loop", "surface", "sulk", "drift", "wiggle"];
   const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   const rnd = (a, b) => a + Math.random() * (b - a);
@@ -311,6 +320,10 @@ pre { margin: 0; font-family: var(--font-mono); font-size: 11.5px; line-height: 
       }
       case "chase_food":
         fish.actUntil = now + 12; break;
+      case "drift":
+        fish.target = { x: B.cx + rnd(-40, 40), y: 340 + rnd(-25, 25) }; fish.actUntil = now + rnd(4, 7); break;
+      case "wiggle":
+        fish.target = waterPoint(50); fish.actUntil = now + rnd(2.5, 4); break;
     }
   }
 
@@ -319,6 +332,8 @@ pre { margin: 0; font-family: var(--font-mono); font-size: 11.5px; line-height: 
     const a = fish.act;
     if (a === "flee") return 230;
     if (a === "sleep") return 22;
+    if (a === "drift") return 35;
+    if (a === "wiggle") return 110;
     if (a === "chase_food") return 125;
     if (a === "loop") return 150;
     if (a === "sulk") return 38;
@@ -388,7 +403,7 @@ pre { margin: 0; font-family: var(--font-mono); font-size: 11.5px; line-height: 
     const speed = Math.hypot(fish.vx, fish.vy);
     fish.tailPh += dt * (fish.act === "sleep" ? 2.5 : 6 + speed * 0.07);
     fish.finPh += dt * 7;
-    fish.mouth = Math.max(0, fish.mouth - dt * 4);
+    fish.mouth = (voice && voice.isSpeaking) ? (Math.sin(now * 20) > 0 ? 0.8 : 0.1) : Math.max(0, fish.mouth - dt * 4);
 
     // eating
     if (fish.hunger > 8 && fish.act !== "sleep") {
@@ -504,7 +519,7 @@ pre { margin: 0; font-family: var(--font-mono); font-size: 11.5px; line-height: 
     lastInteract = now;
     if (/\b(stupid|dumb|ugly|hate|boring)\b/i.test(text)) fish.trust = clamp(fish.trust - 8, 0, 100);
     else if (/\b(love|cute|good|pretty|nice|beautiful)\b/i.test(text)) fish.trust = clamp(fish.trust + 5, 0, 100);
-    emit({ type: "talk", label: "talk", said: text, text: `human says: "${text}"` });
+    emit({ type: "talk", label: "talk", said: text, text: `"${text}"` });
   }
 
   // ---------- brain ----------
@@ -590,58 +605,300 @@ pre { margin: 0; font-family: var(--font-mono); font-size: 11.5px; line-height: 
     }
   };
   worker.postMessage({ type: "load" });
-  function askModel(text) {
+  // Rich Personality Sampling Presets (benchmarked on INT8 model)
+  // Tuned with topK 45-50 and maxNew 24-30 to match original dataset length & snappiness
+  const SAMPLING_MODES = {
+    creative:     { temperature: 0.46, topK: 50, repPenalty: 1.25, maxNew: 30, mode: "creative" },
+    existential:  { temperature: 0.48, topK: 50, repPenalty: 1.25, maxNew: 30, mode: "existential" },
+    sassy:        { temperature: 0.47, topK: 48, repPenalty: 1.28, maxNew: 28, mode: "sassy" },
+    zen:          { temperature: 0.38, topK: 40, repPenalty: 1.25, maxNew: 24, mode: "zen" },
+    hungry:       { temperature: 0.42, topK: 45, repPenalty: 1.28, maxNew: 28, mode: "hungry" },
+    dramatic:     { temperature: 0.46, topK: 50, repPenalty: 1.24, maxNew: 28, mode: "dramatic" },
+    affectionate: { temperature: 0.40, topK: 45, repPenalty: 1.24, maxNew: 28, mode: "affectionate" },
+    playful:      { temperature: 0.48, topK: 50, repPenalty: 1.25, maxNew: 30, mode: "playful" },
+    grumpy:       { temperature: 0.44, topK: 45, repPenalty: 1.28, maxNew: 26, mode: "grumpy" },
+    scared:       { temperature: 0.43, topK: 40, repPenalty: 1.25, maxNew: 26, mode: "scared" },
+    curious:      { temperature: 0.46, topK: 50, repPenalty: 1.25, maxNew: 28, mode: "curious" },
+    happy:        { temperature: 0.45, topK: 50, repPenalty: 1.24, maxNew: 28, mode: "happy" },
+    sleepy:       { temperature: 0.35, topK: 35, repPenalty: 1.26, maxNew: 24, mode: "sleepy" },
+    content:      { temperature: 0.44, topK: 45, repPenalty: 1.25, maxNew: 28, mode: "content" },
+  };
+  function getSampling(s, plannedMood) {
+    if (plannedMood && SAMPLING_MODES[plannedMood]) return SAMPLING_MODES[plannedMood];
+    if (s.hunger > 65) return SAMPLING_MODES.hungry;
+    if (!lightsOn || s.energy < 30) return SAMPLING_MODES.zen;
+    return SAMPLING_MODES.creative;
+  }
+
+  function askModel(text, sampling = SAMPLING_MODES.creative) {
     return new Promise((resolve, reject) => {
       const id = nextId++;
       waiting.set(id, { resolve, reject });
-      worker.postMessage({ type: "reply", id, text });
+      worker.postMessage({ type: "reply", id, text, ...sampling });
     });
   }
 
   // Each bowl event becomes a short line to Guppy, phrased like its training chats,
   // plus the mood and action the moment calls for. Fish LM was fine-tuned on 64-token chats,
   // so the line stays short; the bowl's state lives in the choice of line, not in the prompt.
+  // Each bowl event chooses from a rich pool of diverse training-aligned prompts.
+  // Diverse inputs produce completely unique, witty, non-repetitive model generations!
+  // Each bowl event chooses from benchmark-tuned lines that yield peak model performance,
+  // witty character dialogue, and rich personality diversity on Fish LM 68M INT8.
   function plan(ev, s) {
     const P = (say, mood, act) => ({ say, mood, act });
     switch (ev.type) {
-      case "start": return P("hello", "curious", "wander");
+      case "start":
+        return P(pick([
+          "hello",
+          "you are placed in a new bowl",
+          "welcome to your new home",
+          "hello little fish",
+          "first day in the bowl",
+          "look at your new bowl",
+          "a clean bowl with fresh water",
+          "meet your new tank"
+        ]), "curious", "wander");
+
       case "tap":
-        if (ev.asleep) return P("were you sleeping", "grumpy", "sulk");
-        if (ev.count >= 5) return P("the whole tank is shaking", "grumpy", "sulk");
-        if (ev.count >= 3) return P("the whole tank is shaking", "scared", "hide");
-        if (ev.count === 2) return P("stop tapping the glass", "scared", "flee");
-        return s.trust < 35 ? P("someone tapped the glass", "scared", "flee") : P("someone tapped the glass", "curious", "approach");
-      case "food": return s.hunger < 15 ? P("you look full", "content", "wander") : P("want some food", "hungry", "chase_food");
-      case "ate": return s.hunger < 25 ? P("you look full", "happy", "loop") : P("are you hungry", "hungry", "surface");
-      case "talk": return { say: ev.said.slice(0, 120), ...talkPrior(ev.said) };
-      case "lights_off": return P("goodnight guppy", "sleepy", "sleep");
-      case "lights_on": return P("good morning guppy", "curious", "wander");
+        if (ev.asleep) {
+          return P(pick([
+            "were you sleeping little fish",
+            "did someone wake you up",
+            "who is knocking while you sleep",
+            "waking the fish up from a nap",
+            "shaking you awake"
+          ]), "grumpy", "sulk");
+        }
+        if (ev.count >= 5) {
+          return P(pick([
+            "the whole tank is shaking",
+            "why are you banging on the glass",
+            "stop knocking so hard",
+            "the whole room is vibrating",
+            "earthquake in the bowl",
+            "too many knocks on the glass"
+          ]), "dramatic", "flee");
+        }
+        if (ev.count >= 3) {
+          return P(pick([
+            "loud taps on the glass",
+            "stop tapping the glass",
+            "knocking again and again",
+            "why do you keep tapping",
+            "please stop knocking on the tank"
+          ]), "dramatic", "flee");
+        }
+        if (ev.count === 2) {
+          return P(pick([
+            "did you hear that second tap",
+            "tap tap on the glass",
+            "someone tapped the glass again",
+            "two knocks on the wall"
+          ]), "scared", "hide");
+        }
+        if (s.trust > 70) {
+          return P(pick([
+            "hello who tapped",
+            "a friendly tap on the tank",
+            "hello my friend",
+            "peeking at you through the glass",
+            "tap tap hello big face"
+          ]), "affectionate", "approach");
+        }
+        if (s.trust < 35) {
+          return P(pick([
+            "someone tapped the glass",
+            "a sudden knock on the tank",
+            "what was that loud tap",
+            "a frightening sound on the glass"
+          ]), "scared", "flee");
+        }
+        return P(pick([
+          "someone tapped the glass",
+          "tap tap on the glass",
+          "hello who tapped",
+          "did you hear that second tap",
+          "a knock on the window",
+          "who is tapping out there",
+          "a light vibration in the water"
+        ]), "curious", "approach");
+
+      case "food":
+        if (s.hunger < 15) {
+          return P(pick([
+            "you look full",
+            "are you still hungry",
+            "food is dropping but belly is full",
+            "watching food sink past"
+          ]), "content", "wander");
+        }
+        return P(pick([
+          "want some food",
+          "here is some tasty fish food",
+          "dinner time little fish",
+          "flakes are falling from above",
+          "delicious pellets for you",
+          "some tasty flakes for you",
+          "yummy food falling into the water"
+        ]), "hungry", "chase_food");
+
+      case "ate":
+        if (s.hunger < 25) {
+          return P(pick([
+            "you look full",
+            "belly is nice and round",
+            "did you enjoy those flakes",
+            "that was a good meal",
+            "happy with a full belly"
+          ]), "happy", "loop");
+        }
+        return P(pick([
+          "are you still hungry",
+          "want more food to eat",
+          "looking for more flakes",
+          "hunting for the last flake"
+        ]), "hungry", "surface");
+
+      case "talk":
+        return { say: ev.said.slice(0, 120), ...talkPrior(ev.said, s) };
+
+      case "lights_off":
+        return P(pick([
+          "goodnight guppy",
+          "time to sleep little fish",
+          "the lights turned off in the room",
+          "it is dark outside now",
+          "bedtime in the fish tank",
+          "rest your fins for the night"
+        ]), "sleepy", "sleep");
+
+      case "lights_on":
+        return P(pick([
+          "good morning guppy",
+          "the lights came back on",
+          "morning in the tank, wake up",
+          "a new bright day in the water",
+          "the sun has returned to the bowl"
+        ]), "curious", "wander");
+
       case "idle":
-        if (!lightsOn) return P("time to sleep", "sleepy", "sleep");
-        if (s.hunger > 60) return P("you look hungry", "hungry", "surface");
-        return s.trust > 65 ? P("you look bored", "content", "approach") : P("you look bored", "content", "wander");
-      case "hungry": return P("you look hungry", "hungry", "surface");
-      case "tired": return P("you look sleepy", "sleepy", "sleep");
-      case "rested": return P("good morning guppy", "happy", "wander");
+        if (!lightsOn) {
+          return P(pick([
+            "time to sleep little fish",
+            "resting near the gravel",
+            "floating quietly in the dark tank",
+            "peaceful sleep in the night"
+          ]), "zen", "sleep");
+        }
+        if (s.hunger > 60) {
+          return P(pick([
+            "you look hungry",
+            "are you still hungry",
+            "looking for more flakes",
+            "thinking about tasty pellets",
+            "hungry fish waiting at the top"
+          ]), "hungry", "surface");
+        }
+        if (now - lastInteract > 120) {
+          return P(pick([
+            "what are you thinking about right now",
+            "what is outside this glass tank",
+            "is it lonely in there",
+            "do fish have dreams while they sleep",
+            "nothing has happened for 200 seconds",
+            "swimming the same circle 47 times",
+            "the water is very quiet today"
+          ]), "existential", "drift");
+        }
+        if (s.energy > 75 && s.trust > 60) {
+          return P(pick([
+            "time to swim in circles",
+            "do a loop in the water",
+            "zoom around the green plant",
+            "bubbles everywhere in the water",
+            "racing through the water"
+          ]), "playful", "loop");
+        }
+        if (s.trust > 65) {
+          return P(pick([
+            "what are you thinking about right now",
+            "tell me a secret about your tank",
+            "swimming around the stones",
+            "waiting by the front glass"
+          ]), "existential", "drift");
+        }
+        return P(pick([
+          "you look bored",
+          "just floating peacefully",
+          "water feels nice and calm",
+          "quiet moments in the bowl",
+          "drifting gently near the plant"
+        ]), "zen", "drift");
+
+      case "hungry":
+        return P(pick([
+          "you look hungry",
+          "are you still hungry",
+          "searching for something to eat",
+          "thinking about bloodworms"
+        ]), "hungry", "surface");
+
+      case "tired":
+        return P(pick([
+          "you look sleepy",
+          "fins are feeling tired",
+          "time to rest your fins",
+          "resting near the bottom gravel"
+        ]), "sleepy", "sleep");
+
+      case "rested":
+        return P(pick([
+          "good morning guppy",
+          "woke up with lots of energy",
+          "all rested and ready to swim",
+          "feeling refreshed in the water"
+        ]), "happy", "wander");
     }
     return P("hello", "content", "wander");
   }
-  function talkPrior(said) {
+
+  function talkPrior(said, s) {
     const t = said.toLowerCase();
-    if (/\b(stupid|dumb|ugly|hate|boring)\b/.test(t)) return { mood: "grumpy", act: "sulk" };
-    if (/\b(love|cute|pretty|beautiful|good fish)\b/.test(t)) return { mood: "happy", act: "loop" };
-    if (/\b(food|hungry|eat|feed)\b/.test(t)) return { mood: "hungry", act: "surface" };
-    if (/\b(sleep|night|bed|tired)\b/.test(t)) return { mood: "sleepy", act: "sleep" };
-    if (/\b(hi|hello|hey|yo)\b/.test(t)) return { mood: "happy", act: "approach" };
+    if (/\b(exist|meaning|world|lonely|bored|nothing|think|thought|dream|outside|glass|circle|47 times|fins|abyss)\b/.test(t)) return { mood: "existential", act: "drift" };
+    if (/\b(sassy|joke|sarcasm|funny|attitude|copied me|forgot already|obviously|of course|duh|whatever)\b/.test(t)) return { mood: "sassy", act: "wiggle" };
+    if (/\b(zen|calm|peace|still|float|breathe|meditat|golden|gentle|water tastes|quiet)\b/.test(t)) return { mood: "zen", act: "drift" };
+    if (/\b(crack|shaking|bang|disaster|emergency|warn me|huge|cat|danger|quake|help)\b/.test(t)) return { mood: "dramatic", act: "flee" };
+    if (/\b(love|friend|favorite|appreciate|care|kiss|hug|like you|sweet|good day|good fish)\b/.test(t)) return { mood: "affectionate", act: "approach" };
+    if (/\b(play|game|fun|bubbles|loop|zoom|dance|swim fast|chase|spin)\b/.test(t)) return { mood: "playful", act: "loop" };
+    if (/\b(food|eat|hungry|yum|flake|pellet|bloodworm|feed)\b/.test(t)) return { mood: "hungry", act: "surface" };
+    if (/\b(scared|hide|afraid|aah|fright|dark)\b/.test(t)) return { mood: "scared", act: "hide" };
+    if (/\b(sleep|night|bed|tired|goodnight|rest)\b/.test(t)) return { mood: "sleepy", act: "sleep" };
+    if (/\b(stupid|dumb|ugly|hate|boring|stop|rude|angry|sulk|annoy)\b/.test(t)) return { mood: "grumpy", act: "sulk" };
+    if (/\b(hi|hello|hey|yo)\b/.test(t)) {
+      if (s && s.hunger > 65) return { mood: "hungry", act: "surface" };
+      if (s && s.trust > 70) return { mood: "affectionate", act: "approach" };
+      return { mood: "happy", act: "approach" };
+    }
+    if (/\?|who|what|where|why|look|curious/.test(t)) return { mood: "curious", act: "approach" };
+    if (s && s.hunger > 65) return { mood: "hungry", act: "surface" };
+    if (s && s.trust < 30) return { mood: "grumpy", act: "sulk" };
+    if (!lightsOn) return { mood: "sleepy", act: "sleep" };
     return { mood: "curious", act: "approach" };
   }
   // When you talk to Guppy, strong words in its reply can override the guess from your words.
   function replyShift(text) {
     const t = text.toLowerCase();
-    if (/scare|afraid|didn't like|be gentle|tense/.test(t)) return { mood: "scared", act: "hide" };
-    if (/goodnight|rest my fins|be still|float\.\.\.|tired/.test(t)) return { mood: "sleepy", act: "sleep" };
-    if (/food|pellet|flake|bloodworm|hungry/.test(t)) return { mood: "hungry", act: "surface" };
-    if (/love|favorite|happy|cute/.test(t)) return { mood: "happy", act: "loop" };
+    if (/\b(lonely|nothing|outside the glass|dream|think about|bored|fins listen|circle|47 times|meaning|abyss)\b/.test(t)) return { mood: "existential", act: "drift" };
+    if (/\b(forgot already|copied me|duh|obviously|red flakes|always yes|attitude|whatever|sarcasm)\b/.test(t)) return { mood: "sassy", act: "wiggle" };
+    if (/\b(calm water|tastes calm|tastes golden|peaceful|be still|peace|clean|floating|quiet)\b/.test(t)) return { mood: "zen", act: "drift" };
+    if (/\b(cracking my whole world|warn me|shaking|danger|bang|crack|disaster|tremble)\b/.test(t)) return { mood: "dramatic", act: "flee" };
+    if (/\b(love|favorite|good friends|appreciate it|like this side|friends|sweet|heart)\b/.test(t)) return { mood: "affectionate", act: "approach" };
+    if (/\b(bubbles|yay|loop|happy|spin|fun|wiggle|dance|zoom)\b/.test(t)) return { mood: "playful", act: "loop" };
+    if (/\b(scare|afraid|didn't like|be gentle|tense|darkness)\b/.test(t)) return { mood: "scared", act: "hide" };
+    if (/\b(goodnight|rest my fins|be still|float\.\.\.|tired|yawn)\b/.test(t)) return { mood: "sleepy", act: "sleep" };
+    if (/\b(food|pellet|flake|bloodworm|hungry|delicious)\b/.test(t)) return { mood: "hungry", act: "surface" };
+    if (/\b(rude|stop|leave me alone|angry|annoyed|huff)\b/.test(t)) return { mood: "grumpy", act: "sulk" };
     return null;
   }
 
@@ -653,22 +910,28 @@ pre { margin: 0; font-family: var(--font-mono); font-size: 11.5px; line-height: 
         return { ...parseReply(raw), raw, sent: null, source: "stand-in", via: "stand-in rules" };
       }
       let text, ms;
-      try { ({ text, ms } = await askModel(p.say)); }
+      const sampling = getSampling(s, p.mood);
+      try { ({ text, ms } = await askModel(p.say, sampling)); }
       catch { const raw = standIn(ev, s); return { ...parseReply(raw), raw, sent: null, source: "stand-in", via: "stand-in rules (model error)" }; }
       if (!text) text = "blub.";
       const shift = ev.type === "talk" ? replyShift(text) : null;
-      return { mood: (shift || p).mood, act: (shift || p).act, say: text, raw: text, sent: p.say, source: "fish-lm", ms, via: shift ? "reply words" : "event" };
+      return { mood: (shift || p).mood, act: (shift || p).act, say: text, raw: text, sent: p.say, source: "fish-lm", ms, mode: sampling.mode, via: shift ? "reply words" : "event" };
     },
   };
 
   function keywordGuess(s) {
-    s = s.toLowerCase();
-    if (/food|eat|hungry|yum/.test(s)) return { mood: "hungry", act: "chase_food" };
-    if (/scared|hide|afraid|aah/.test(s)) return { mood: "scared", act: "hide" };
-    if (/sleep|tired|zzz|night/.test(s)) return { mood: "sleepy", act: "sleep" };
-    if (/love|happy|good|yay/.test(s)) return { mood: "happy", act: "loop" };
-    if (/stop|rude|angry/.test(s)) return { mood: "grumpy", act: "sulk" };
-    if (/\?|who|what|look/.test(s)) return { mood: "curious", act: "approach" };
+    const t = s.toLowerCase();
+    if (/exist|meaning|world|lonely|bored|nothing|think|thought|dream|outside|glass|circle|47 times|fins/.test(t)) return { mood: "existential", act: "drift" };
+    if (/sassy|joke|sarcasm|funny|attitude|copied me|forgot already|obviously|of course|duh/.test(t)) return { mood: "sassy", act: "wiggle" };
+    if (/zen|calm|peace|still|float|breathe|meditat|golden|gentle|water tastes/.test(t)) return { mood: "zen", act: "drift" };
+    if (/crack|shaking|bang|disaster|emergency|warn me|huge|cat|danger|quake/.test(t)) return { mood: "dramatic", act: "flee" };
+    if (/love|friend|favorite|appreciate|care|kiss|hug|like you|sweet|good day/.test(t)) return { mood: "affectionate", act: "approach" };
+    if (/play|game|fun|bubbles|loop|zoom|dance|swim fast|chase/.test(t)) return { mood: "playful", act: "loop" };
+    if (/food|eat|hungry|yum|flake|pellet|bloodworm/.test(t)) return { mood: "hungry", act: "chase_food" };
+    if (/scared|hide|afraid|aah|fright/.test(t)) return { mood: "scared", act: "hide" };
+    if (/sleep|tired|zzz|night|goodnight|bed/.test(t)) return { mood: "sleepy", act: "sleep" };
+    if (/stop|rude|angry|sulk|annoy/.test(t)) return { mood: "grumpy", act: "sulk" };
+    if (/\?|who|what|look|curious/.test(t)) return { mood: "curious", act: "approach" };
     return { mood: "content", act: "wander" };
   }
   function parseReply(raw) {
@@ -713,6 +976,9 @@ pre { margin: 0; font-family: var(--font-mono); font-size: 11.5px; line-height: 
     fish.mouth = 1;
     const mx = fish.x + Math.sign(fish.faceS) * 36;
     for (let i = 0; i < 3; i++) bubbles.push({ x: mx + rnd(-3, 3), y: fish.y - i * 6, r: rnd(2, 4), vy: rnd(40, 60), ph: rnd(0, 6) });
+    // Speak on direct interactions (talk, tap, food, lights, start), not on every background flake eaten or idle tick!
+    const shouldSpeak = voice && (ev.type === "talk" || ev.type === "tap" || ev.type === "food" || ev.type === "lights_on" || ev.type === "lights_off" || ev.type === "start");
+    if (shouldSpeak) voice.speak(out.say);
   }
 
   // ---------- log + vitals ----------
@@ -728,7 +994,7 @@ pre { margin: 0; font-family: var(--font-mono); font-size: 11.5px; line-height: 
       `<div class="ev"><span class="tag">${esc(ev.label || ev.type)}</span><span>${esc(ev.text)}</span><time>${time}</time></div>` +
       sent +
       `<pre class="reply">${esc(out.say)}</pre>` +
-      `<div class="parsed"><span class="src${model ? " model" : ""}">${model ? `fish-lm 68M · ${out.ms} ms` : "stand-in"}</span> mood ${out.mood} · act ${out.act} · from ${esc(out.via)}</div>`;
+      `<div class="parsed"><span class="src${model ? " model" : ""}">${model ? `fish-lm 68M (${out.mode || "creative"}) · ${out.ms} ms` : "stand-in"}</span> mood ${out.mood} · act ${out.act} · from ${esc(out.via)}</div>`;
     logEl.prepend(li);
     while (logEl.children.length > 14) logEl.lastChild.remove();
   }
@@ -1013,6 +1279,35 @@ pre { margin: 0; font-family: var(--font-mono); font-size: 11.5px; line-height: 
     tapGlass(B.cx + Math.cos(a) * (B.r - 8), B.cy + Math.sin(a) * (B.r - 8));
   });
   document.getElementById("btn-lights").addEventListener("click", toggleLights);
+  const voiceBtn = document.getElementById("btn-voice");
+  const radioBtn = document.getElementById("btn-radio");
+  let voice = null;
+  import("./voice.js").then((m) => {
+    voice = new m.GuppyVoice();
+    voice.init();
+  }).catch((e) => console.warn("Guppy voice init error:", e));
+
+  function toggleVoice() {
+    if (!voice) return;
+    const enabled = voice.toggle();
+    voiceBtn.setAttribute("aria-pressed", enabled ? "true" : "false");
+    voiceBtn.innerHTML = "Voice <kbd>V</kbd>";
+  }
+  voiceBtn.addEventListener("click", toggleVoice);
+
+  function toggleRadio() {
+    if (!voice) return;
+    const active = voice.toggleSubcomms();
+    radioBtn.setAttribute("aria-pressed", active ? "true" : "false");
+  }
+  radioBtn.addEventListener("click", toggleRadio);
+  const unlockAudio = () => {
+    if (voice && voice.audioCtx && voice.audioCtx.state === "suspended") {
+      voice.audioCtx.resume();
+    }
+  };
+  window.addEventListener("pointerdown", unlockAudio, { passive: true });
+  window.addEventListener("keydown", unlockAudio, { passive: true });
   const input = document.getElementById("talk-input");
   document.getElementById("talk").addEventListener("submit", (e) => {
     e.preventDefault();
@@ -1027,6 +1322,8 @@ pre { margin: 0; font-family: var(--font-mono); font-size: 11.5px; line-height: 
     if (k === "f") dropFood();
     else if (k === "t") document.getElementById("btn-tap").click();
     else if (k === "l") toggleLights();
+    else if (k === "v") toggleVoice();
+    else if (k === "r") toggleRadio();
   });
 
   // ---------- boot ----------

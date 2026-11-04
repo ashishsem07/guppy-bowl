@@ -1,6 +1,8 @@
 // Fish LM (68M, Govind222/68m-base-guppy-sft) running on ONNX Runtime.
-// Same chat template and sampling as the author's Fish_LM.ipynb chat_sft():
-// temperature 0.4, top-k 50, repetition penalty 1.3 over the last 64 tokens, stop on <|im_end|> or [EOS].
+// Exact chat template matching Fish LM app.py (build_chatml_prompt):
+// <|im_start|>user<|im_end|>\n{clean_prompt or '...'}<|im_end|>\n<|im_start|>assistant<|im_end|>\n
+// Repetition penalty matching torch.where(scores < 0, scores * rep, scores / rep) over last 64 tokens,
+// strictly excluding STOP_IDS so the EOS token is never suppressed!
 
 const N_LAYERS = 12, N_KV_HEADS = 2, HEAD_DIM = 64;
 const STOP_IDS = new Set([8, 3]); // <|im_end|>, [EOS]
@@ -18,10 +20,11 @@ export class FishLM {
   }
 
   prompt(userText) {
-    return `<|im_start|>user<|im_end|>\n${userText}<|im_end|>\n<|im_start|>assistant<|im_end|>\n`;
+    const clean = (userText || "").trim() || "...";
+    return `<|im_start|>user<|im_end|>\n${clean}<|im_end|>\n<|im_start|>assistant<|im_end|>\n`;
   }
 
-  async reply(userText, { temperature = 0.4, topK = 50, repPenalty = 1.3, maxNew = 40, random = Math.random } = {}) {
+  async reply(userText, { temperature = 0.46, topK = 50, repPenalty = 1.25, maxNew = 30, random = Math.random } = {}) {
     const { ort } = this;
     const seq = Array.from(this.tokenizer.encode(this.prompt(userText), { add_special_tokens: false }).ids);
     const out = [];
@@ -45,7 +48,12 @@ export class FishLM {
       const logits = new Float32Array(vocab);
       const off = (step.length - 1) * vocab;
       for (let v = 0; v < vocab; v++) logits[v] = all[off + v] / Math.max(temperature, 1e-8);
-      for (const t of new Set(seq.slice(-64))) logits[t] /= repPenalty;
+      
+      // Repetition penalty on recent context tokens - exclude STOP_IDS so EOS is not suppressed
+      for (const t of new Set(seq.slice(-64))) {
+        if (STOP_IDS.has(t) || t === 7) continue;
+        logits[t] = logits[t] > 0 ? logits[t] / repPenalty : logits[t] * repPenalty;
+      }
 
       const next = sampleTopK(logits, topK, random);
       seq.push(next);
@@ -63,14 +71,29 @@ export class FishLM {
   }
 }
 
-function sampleTopK(logits, k, random) {
-  const idx = Array.from(logits.keys()).sort((a, b) => logits[b] - logits[a]).slice(0, k);
-  const max = logits[idx[0]];
-  const w = idx.map((i) => Math.exp(logits[i] - max));
-  let r = random() * w.reduce((a, b) => a + b, 0);
-  for (let j = 0; j < idx.length; j++) {
-    r -= w[j];
-    if (r <= 0) return idx[j];
+function sampleTopK(logits, topK, random) {
+  const n = logits.length;
+  const k = Math.min(topK, n);
+  const idx = new Int32Array(n);
+  for (let i = 0; i < n; i++) idx[i] = i;
+  idx.sort((a, b) => logits[b] - logits[a]);
+  const kth = logits[idx[k - 1]];
+
+  let maxL = -Infinity;
+  for (let i = 0; i < k; i++) if (logits[idx[i]] > maxL) maxL = logits[idx[i]];
+
+  let sum = 0;
+  const probs = new Float32Array(k);
+  for (let i = 0; i < k; i++) {
+    const p = Math.exp(logits[idx[i]] - maxL);
+    probs[i] = p;
+    sum += p;
   }
-  return idx[idx.length - 1];
+
+  let r = random() * sum;
+  for (let i = 0; i < k; i++) {
+    r -= probs[i];
+    if (r <= 0) return idx[i];
+  }
+  return idx[k - 1];
 }

@@ -25,23 +25,46 @@ async function fetchModel(manifest) {
   let offset = 0, cached = true;
   for (const part of manifest.parts) {
     const url = new URL(part, MODEL_DIR).href;
+    const partStart = offset;
+    let fromCache = false;
     let res = cache ? await cache.match(url) : null;
-    if (!res) {
+    if (res) {
+      fromCache = true;
+    } else {
       cached = false;
       res = await fetch(url);
       if (!res.ok) throw new Error(`Could not download ${part} (HTTP ${res.status})`);
-      if (cache) { try { await cache.put(url, res.clone()); } catch { /* storage full: keep going without caching */ } }
     }
-    const reader = res.body.getReader();
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      bytes.set(value, offset);
-      offset += value.length;
+
+    if (res.body && typeof res.body.getReader === 'function') {
+      const reader = res.body.getReader();
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        bytes.set(value, offset);
+        offset += value.length;
+        postMessage({ type: "progress", loaded: offset, total: manifest.bytes });
+      }
+    } else {
+      const buf = new Uint8Array(await res.arrayBuffer());
+      bytes.set(buf, offset);
+      offset += buf.length;
       postMessage({ type: "progress", loaded: offset, total: manifest.bytes });
     }
+
+    // Only cache once the part is fully downloaded in memory without errors
+    if (!fromCache && cache) {
+      try {
+        await cache.put(url, new Response(bytes.slice(partStart, offset)));
+      } catch { /* storage full */ }
+    }
   }
-  if (offset !== manifest.bytes) throw new Error("Model download was incomplete");
+
+  if (offset !== manifest.bytes) {
+    // If download was incomplete, clear corrupted cache
+    try { await caches.delete(cacheName); } catch {}
+    throw new Error(`Model download was incomplete (${offset}/${manifest.bytes} bytes). Corrupted cache cleared, please reload.`);
+  }
   return { bytes, cached };
 }
 
@@ -65,7 +88,12 @@ self.onmessage = (e) => {
       if (!lm) return postMessage({ type: "error", id: msg.id, message: "Model is not loaded yet" });
       const t0 = performance.now();
       try {
-        const text = await lm.reply(msg.text);
+        const text = await lm.reply(msg.text, {
+          temperature: msg.temperature,
+          topK: msg.topK,
+          repPenalty: msg.repPenalty,
+          maxNew: msg.maxNew
+        });
         postMessage({ type: "reply", id: msg.id, text, ms: Math.round(performance.now() - t0) });
       } catch (err) {
         postMessage({ type: "error", id: msg.id, message: String(err?.message || err) });
