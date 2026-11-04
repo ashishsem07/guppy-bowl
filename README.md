@@ -20,12 +20,23 @@ tap / food / lights / chat / boredom
                      mood + action ◄─┘  (from the event; when you chat, words in the reply can shift it)
 ```
 
-- **Body:** `web/index.html` draws the bowl on a canvas and runs the fish's steering, reflexes, hunger, energy and trust.
-- **Brain:** `web/brain-worker.js` downloads the model once (four 19 MB parts, cached with the Cache API) and runs it with ONNX Runtime Web (WASM, multi-threaded when the page is cross-origin isolated).
-- **Generation:** `web/fish-lm.js` uses the model's training chat template and the same sampling as the author's notebook: temperature 0.4, top-k 50, repetition penalty 1.3.
-- **Event phrasing:** Fish LM was fine-tuned on short chats, so each bowl event becomes a short line worded like its training data. See `plan()` in `web/index.html`. Until the model loads, a small rule-based stand-in brain answers.
+- **Body:** `web/index.html` draws the bowl on a canvas and runs the fish's steering, reflexes, hunger, energy and trust, with 13 rich personality moods (existential, sassy, zen, dramatic, affectionate, playful, hungry, and more) and custom swimming behaviors (`drift`, `wiggle`).
+- **Voice:** `web/voice.js` runs 100% client-side neural speech powered by Piper WASM with a deadpan Interstellar TARS voice profile (`en_US-hfc_male-medium`) and toggleable spacecraft radio intercom DSP bandpass & saturation filtering (`V` and `R` keys).
+- **Brain:** `web/brain-worker.js` downloads the model once (four 19 MB parts, cached with the Cache API) and runs it with ONNX Runtime Web (WASM, multi-threaded when the page is cross-origin isolated). Downloads are verified before caching to protect against corrupted streams.
+- **Generation:** `web/fish-lm.js` uses the model's exact SFT chat template (`<|im_start|>user<|im_end|>\n...<|im_start|>assistant<|im_end|>\n`) with dynamically tuned sampling presets optimized for INT8 quantization (`temperature: 0.46`, `topK: 50`, `repPenalty: 1.25`, unpenalized EOS).
+- **Event phrasing & Diversity:** Each bowl action randomly selects from a benchmarked pool of 10–15 training-aligned prompts, eliminating repetitive outputs while matching the training data's phrasing.
 
 Nothing leaves the visitor's device. There is no server.
+
+## Controls & Shortcuts
+
+| Action | Shortcut | Description |
+| :--- | :---: | :--- |
+| **Drop food** | <kbd>F</kbd> | Drop food flakes at water surface |
+| **Tap glass** | <kbd>T</kbd> | Tap the glass bowl |
+| **Lights** | <kbd>L</kbd> | Toggle tank lights (day/night) |
+| **Voice** | <kbd>V</kbd> | Toggle neural voice speech on/off |
+| **Radio filter** | <kbd>R</kbd> | Toggle spacecraft intercom DSP filter |
 
 ## Run it locally
 
